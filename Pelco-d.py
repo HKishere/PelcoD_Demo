@@ -1,6 +1,6 @@
-import select
+#!/usr/bin/python3
+import imp
 import sys
-import keyboard
 import threading
 import TCP_Client as tcp
 import Serial as ser
@@ -28,6 +28,13 @@ NONE_MODEL      = 0
 NETWORK_MODEL   = 1
 SERIAL_MODEL    = 2
 
+if sys.platform == 'win32':
+    from msvcrt import getch
+    print("Windows环境, 使用msvcrt")
+else:
+    import sys, tty, termios
+    print("Linux环境, 使用termios")
+
 def SUMCheck(strCode):
     All_btye = strCode.split()
     All_btye.remove(All_btye[0])
@@ -37,6 +44,41 @@ def SUMCheck(strCode):
         sum += each_num
     return sum
 
+class _GetchUnix:
+    def __init__(self):
+        import tty, sys
+
+    def __call__(self):
+        import sys, tty, termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+
+class _GetchWindows:
+    def __init__(self):
+        import msvcrt
+
+    def __call__(self):
+        import msvcrt
+        return msvcrt.getch()
+
+class _Getch:
+       #"""Gets a single character from standard input.  Does not echo to thescreen."""
+    def __init__(self):
+        try:
+            self.impl = _GetchWindows()
+        except ImportError:
+            self.impl = _GetchUnix()
+
+    def __call__(self): return self.impl()
+
+mygetch = _Getch()
 class PelcoDDemo:
     m_Speed = 10
     m_client = tcp.TCP_Client()
@@ -54,8 +96,10 @@ class PelcoDDemo:
 
     def OpenSer(self, strPortName, nBoundRate):
         if(self.m_serial.OpenSerial(strPortName, nBoundRate)):
+            print("已打开串口")
             return True
         else:
+            print("未打开串口")
             return False
 
     def Str2Bytes(self, strCode):
@@ -69,7 +113,6 @@ class PelcoDDemo:
         self.m_Speed = int(input("重新设置速度:"))
 
     def SetAddrCode(self):
-        sys.stdin.flush()
         self.m_addr = int(input("重新转台地址:"))
 
     def MakePelcoDOrder(self, nOder,  Address, nSpeed = 1):
@@ -96,27 +139,37 @@ class PelcoDDemo:
         print("f 重置云台地址码")
         print(">>当前云台地址码: 0x%02X" %(self.m_addr))
         print(">>当前云台速度值: 0x%02X" %(self.m_Speed))
+        print(">>>>>>>>按p键退出")
         while True:
-            #order = ord(getch())
-            #order = chr(order)
+            order = ord(mygetch())
+            order = chr(order)
             str = ""
-            keyboard.add_hotkey('w', self.OnGameModelPress, (HEAD_GO_UP,))
-            keyboard.add_hotkey('a', self.OnGameModelPress, (HEAD_GO_LEFT,))
-            keyboard.add_hotkey('d', self.OnGameModelPress, (HEAD_GO_RIGHT,))
-            keyboard.add_hotkey('s', self.OnGameModelPress, (HEAD_GO_DOWN,))
-            keyboard.add_hotkey('q', self.OnGameModelPress, (HEAD_GO_UP_LEFT,))
-            keyboard.add_hotkey('e', self.OnGameModelPress, (HEAD_GO_UP_RIGHT,))
-            keyboard.add_hotkey('z', self.OnGameModelPress, (HEAD_GO_DOWN_LEFT,))
-            keyboard.add_hotkey('c', self.OnGameModelPress, (HEAD_GO_DOWN_RIGHT,))
-            keyboard.add_hotkey(' ', self.OnGameModelPress, (HEAD_STOP,))
-            keyboard.add_hotkey('r', self.SetSpeed)
-            keyboard.add_hotkey('f', self.SetAddrCode)
-            keyboard.wait()
-
+            if(order == 'w'):
+                self.OnGameModelPress(HEAD_GO_UP)
+            if(order == 'd'):   
+                self.OnGameModelPress(HEAD_GO_RIGHT)
+            if(order == 's'):
+                self.OnGameModelPress(HEAD_GO_DOWN)
+            if(order == 'a'):
+                self.OnGameModelPress(HEAD_GO_LEFT)
+            if(order == 'q'):
+                self.OnGameModelPress(HEAD_GO_UP_LEFT)
+            if(order == 'e'):
+                self.OnGameModelPress(HEAD_GO_UP_RIGHT)
+            if(order == 'z'):
+                self.OnGameModelPress(HEAD_GO_DOWN_LEFT)
+            if(order == 'c'):
+                self.OnGameModelPress(HEAD_GO_DOWN_RIGHT)
+            if(order == ' '):
+                self.OnGameModelPress(HEAD_STOP)
+            if(order == 'r'):
+                self.SetSpeed()
+            if(order == 'f'):
+                self.SetAddrCode()
+            if(order == 'p'):
+                return
 
     def OnGameModelPress(self, nOder):
-        sys.stdin.flush()
-        sys.stdout.flush()
         strPelcoD = self.MakePelcoDOrder(nOder, self.m_addr, self.m_Speed)
         print(strPelcoD)
 
@@ -135,7 +188,7 @@ if __name__ == '__main__':
 
     print("=====PelcoD测试Demo=====")
     print("走网络还是串口?")
-    print("1.网络")
+    print("1.TCP网络")
     print("2.串口")
 
     choose = 0
@@ -146,25 +199,16 @@ if __name__ == '__main__':
         strIP = input("输入IP:")
         nPort = input("输入端口:")    
 
-        Demo.Connect(strIP, nPort)
+        if Demo.Connect(strIP, nPort) == False:
+            sys.exit()
 
     else:
         Demo.m_model = SERIAL_MODEL
-        strCOM_Name = input("输入串口号:")
-        nBp = input("输入波特率:")    
-        Demo.OpenSer(strCOM_Name, nBp)
-    
-    print("=====选择模式=====")
-    print("1.游戏模式")
-    print("2.问答模式")
+        strCOM_Name = input("输入串口号,Linux下需要使用绝对路径，如/dev/COM1:")
+        nBp = input("输入波特率:") 
 
-    choose = input("输入需要的指令:")
-    if choose == '1':
-        Demo.GameModel()
-    elif choose == '2':
-        #str = MakePelcoDOrder( nOder = HEAD_GO_LEFT, Address = 1 )
-        #print(str)
-        pass
-    else:
-        print("请输入合法指令!")
+        if Demo.OpenSer(strCOM_Name, nBp) == False:
+            sys.exit()
+    
+    Demo.GameModel()
 

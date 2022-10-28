@@ -1,4 +1,6 @@
+#!/usr/bin/python3
 import serial #导入模块
+import sys
 import threading
 
 def OnRecv(data):
@@ -40,10 +42,9 @@ class Serial:
                 if self.CallBack != None:
                     self.CallBack(result)
 
-
 if __name__ == "__main__":
     client = Serial()
-    client.OpenSerial("COM8", 9600)
+    client.OpenSerial("/dev/ttyTHS1", 9600)
     client.SetCallBack(OnRecv)
 
     client.SendData(("hello world").encode())

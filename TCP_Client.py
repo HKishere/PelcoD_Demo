@@ -1,17 +1,15 @@
+#!/usr/bin/python3
 from pickle import TRUE
 import socket  #导入socket模块
 import time
 import threading
 
-
-from matplotlib.cbook import strip_math #导入time模块
-
 def OnRecv(data):
     print(data.decode())
 
 class TCP_Client:
-    m_port = 23
-    m_IP = "192.168.1.66"
+    m_port = 9999
+    m_IP = "192.168.2.213"
     m_bconnect = False
     m_server_socket = 0
     CallBack = None
